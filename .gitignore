@@ -1,0 +1,6 @@
+.DS_Store
+__pycache__
+moz-todo-svelte/
+bootstrap-5.0.2-examples
+bootstrap-5.0.2-examples.zip
+node_modules
