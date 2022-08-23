@@ -1,5 +1,0 @@
-{
-  "devDependencies": {
-    "rollup-plugin-serve-proxy": "^1.1.4"
-  }
-}

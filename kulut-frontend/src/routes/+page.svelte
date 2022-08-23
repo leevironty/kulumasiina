@@ -8,34 +8,25 @@
   import Header from './Header.svelte';
   import CostItem from './CostItem.svelte';
 
-  let costItems = [
-    {
-      kind: 'expense',
-      value: '10',
-      desc: 'Ostin oluen',
-    },
-    {
-      kind: 'allowance',
-      value: '20',
-      desc: 'Ajoin autoa',
-    }
-  ]
+  interface costItem {
+    kind: 'expense' | 'allowance',
+    value: string
+  }
+  let costItems: Array<costItem> = [];
 
   $: total = costItems.reduce((v, {value}) => v + Number(value), 0);
   $: needSocialSecurity = costItems.some(({kind}) => kind === 'allowance');
 
   const newExpense = () => {
     costItems = [...costItems, {
-      value: '',
-      desc: '',
       kind: 'expense',
-    }]; 
+      value: ''
+    }];
   }
 
   const newAllowance = () => {
     costItems = [...costItems, {
       value: '',
-      desc: '',
       kind: 'allowance',
     }]; 
   }
@@ -70,7 +61,6 @@
     </div>
     <form id='form' class='col-8' on:submit|preventDefault={handleSubmit}>
       <Group key='fullName' label='Full name'/>
-      <!-- <Group key='lastName' label='Last name'/> -->
       <Group key='iban' label='IBAN' placeholder='FI 12 3456 7890 1234 56'/>
       {#if needSocialSecurity}
         <Group key='socialSecurity' label='Social security number'/>
@@ -98,8 +88,6 @@
 
 <style>
   .container {
-    /* max-width: 1080px; */
     max-width: 1080px;
-    /* border: 1px solid red; */
   }
 </style>

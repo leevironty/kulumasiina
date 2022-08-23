@@ -1,18 +1,8 @@
 <script type='ts'>
-  // export let i: number;
-  // export let kind: string;
-  // $: id = `${kind === 'expense' ? 'expense' : 'allowance'}-item-${i}`;
   export let id: string;
-  $: key_desc = `${id}-desc`;
-  // $: key_kms = `${id}-kms`;
-  // $: key_value = `${id}-value`;
-  // $: key_receipt = `${id}-receipt`;
-  // let kms: string = '';
-  // export let desc: string;
-  let desc = '';
-  // export let value: string;
   export let onClose: {(): void};
-  // let fileUpload: HTMLInputElement;
+  let desc = '';
+  $: key_desc = `${id}-desc`;
 </script>
 
 <div class='row mb-2< mt-2'>
@@ -35,10 +25,3 @@
   </div>
 </div>
 <hr>
-  
-
-<!-- <style>
-  .hidden-file {
-    display: none;
-  }
-</style> -->
