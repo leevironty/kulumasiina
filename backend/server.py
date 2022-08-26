@@ -1,12 +1,11 @@
-from cgitb import reset
 import flask
 # import psycopg
 from backend.models import Session, Submission, Expense, Allowance
-from sqlalchemy import select
-import io
+from sqlalchemy import select, func, union
 from werkzeug.formparser import FileStorage
 import secrets
 import datetime
+import io
 
 # conn_str = 'postgresql://leevi@localhost:5432/kulut'
 
@@ -29,12 +28,95 @@ def handle_submit():
 
 @app.get('/api/submissions')
 def get_submissions():
-    stmt = select([Submission.name, Submission.iban])
+    # stmt = (
+    #     select(
+    #         Submission.submission_id,
+    #         Submission.name,
+    #         Submission.submitted_at,
+    #         Submission.accepted_meeting,
+    #         Submission.paid_at,
+    #         func.sum(Allowance.trip_length * Allowance.per_km).label('allowance_sum'),
+    #         func.sum(Expense.value).label('expense_sum'),
+    #         func.count(Expense.expense_id).label('expense_count'),
+    #         func.count(Allowance.allowance_id).label('allowance_count'),)
+    #     .join(Allowance, isouter=True)
+    #     .join(Expense, isouter=True)
+    #     .group_by(Submission)
+    #     .order_by(
+    #         Submission.paid_at,
+    #         Submission.accepted_meeting,
+    #         Submission.submitted_at.desc())
+    # )
+
+    expense_stmt = (
+        select(
+            Submission.submission_id,
+            func.sum(Expense.value).label('expense_sum'),
+            func.count().label('expense_count'))
+        .join(Expense)
+        .group_by(Submission)
+        .subquery()
+    )
+    allowance_stmt = (
+        select(
+            Submission.submission_id,
+            func.sum(Allowance.trip_length * Allowance.per_km).label('allowance_sum'),
+            func.count().label('allowance_count')
+        ).join(Allowance)
+        .group_by(Submission)
+        .subquery()
+    )
+    joined_stmt = (
+        select(
+            Submission.submission_id,
+            Submission.name,
+            Submission.submitted_at,
+            Submission.accepted_meeting,
+            Submission.accepted_at,
+            Submission.paid_at,
+            expense_stmt.c.expense_sum,
+            expense_stmt.c.expense_count,
+            allowance_stmt.c.allowance_sum,
+            allowance_stmt.c.allowance_count,
+        )
+        .join(expense_stmt, Submission.submission_id == expense_stmt.c.submission_id, isouter=True)
+        .join(allowance_stmt, Submission.submission_id == allowance_stmt.c.submission_id, isouter=True)
+        .order_by(
+            Submission.paid_at,
+            Submission.accepted_meeting,
+            Submission.submitted_at.desc())
+    )
+
     with Session() as session:
-        rows = session.execute(stmt).all()
+        rows = session.execute(joined_stmt).all()
     res = [dict(row) for row in rows]
-    print(res)
+    print(res[0])
     return res
+
+@app.get('/api/submissions/<int:id>')
+def get_one_submission(id: int):
+    stmt = (
+        select(Submission)
+        .where(Submission.submission_id == id)
+    )
+    with Session() as session:
+        submission: Submission = session.execute(stmt).scalar_one()
+        out = submission.as_dict()
+        # expenses = submission.expenses
+        # allowances = submission.allowances
+    return out
+
+@app.get('/api/file/<fname>')
+def get_file(fname: str):
+    stmt = (
+        select(Expense.receipt_data)
+        .where(Expense.receipt_filename == fname)
+    )
+    with Session() as session:
+        res = session.execute(stmt).scalar_one()
+
+    return flask.send_file(io.BytesIO(res), download_name=fname)
+
 
 # @app.get('/api/file/<fname>')
 # def serve_files(fname: str):

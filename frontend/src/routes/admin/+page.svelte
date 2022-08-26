@@ -1,6 +1,101 @@
 <!-- <svelte:head>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/icon?family=Material+Icons"
+  />
+
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,600,700"
+  />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css?family=Roboto+Mono"
+  />
+  <link rel="stylesheet" href="/smui.css" media="(prefers-color-scheme: light)" />
+  <link
+    rel="stylesheet"
+    href="/smui-dark.css"
+    media="screen and (prefers-color-scheme: dark)"
+  />
+
 </svelte:head> -->
 
-<h1>Admin view</h1>
+<script type='ts'>
+  import { onMount } from 'svelte';
+  const formatEur = new Intl.NumberFormat('fi-FI', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format;
+  const formatDate = (dateString: string) => (
+    Intl.DateTimeFormat('fi-FI').format(Date.parse(dateString))
+  )
+
+  let loaded: boolean = true;
+
+  interface submission {
+    submission_id: number,
+    name: string,
+    submitted_at: string,
+    allowance_sum: number,
+    expense_sum: number,
+    expense_count: number,
+    allowance_count: number,
+    accepted_meeting: string,
+    paid_at: string,
+    is_selected: boolean,
+  }
+
+  let submissions: Array<submission> = [];
+  let lastChecked: Number | null = null;
+
+  
+  const fetchSubmissions = async () => {
+    const res = await fetch('/api/submissions', {method: 'GET'});
+    const data = await res.json();
+    data.forEach(element => {
+      element.is_selected = false;
+    });
+    submissions = data;
+  }
+
+  onMount(fetchSubmissions);
+</script>
+
+
+<h2>Admin view</h2>
+
+<table class='table table-bordered table-striped table-hover'>
+  <thead>
+    <tr>
+      <th><input type='checkbox'></th>
+      <th>ID</th>
+      <th style='width: 100%;'>Name</th>
+      <th class='text-end'>Date</th>
+      <th class='text-end'>Accepted</th>
+      <th class='text-end'>Paid</th>
+      <th class='text-end'>Items</th>
+      <th class='text-end'>Value</th>
+    </tr>
+  </thead>
+  <tbody>
+    {#each submissions as submission}
+    <tr class='clickable'>
+      <td><input type='checkbox' bind:checked={submission.is_selected}></td>
+      <td>{submission.submission_id}</td>
+      <td>{submission.name}</td>
+      <td class='text-end'>{formatDate(submission.submitted_at)}</td>
+      <td class='text-end'>{submission.accepted_meeting || '-'}</td>
+      <td class='text-end'>{submission.paid_at ? formatDate(submission.paid_at) : '-'}</td>
+      <td class='text-end'>{submission.allowance_count + submission.expense_count}</td>
+      <td class='text-end'>{formatEur(submission.allowance_sum + submission.expense_sum)}</td>
+    </tr>
+    {/each}
+  </tbody>
+</table>
+
+<style>
+  .clickable {
+    cursor: pointer;
+  }
+</style>
