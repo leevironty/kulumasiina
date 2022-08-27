@@ -12,4 +12,3 @@ WORKDIR /opt/kulumasiina_backend
 
 COPY nginx.conf /etc/nginx/
 COPY --from=builder /opt/kulumasiina_frontend/build/ /usr/share/nginx/html
-

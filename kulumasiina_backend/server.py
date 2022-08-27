@@ -14,16 +14,16 @@ app.config['MAX_CONTENT_LENGTH'] = 16 * 1024**2
 app.config['JSON_AS_ASCII'] = False
 
 
-@app.get('/<path:path>')
-def serve_static(path):
-    if '.' not in path:
-        path = path + '.html'
-    return flask.send_from_directory('../frontend/build', path)
+# @app.get('/<path:path>')
+# def serve_static(path):
+#     if '.' not in path:
+#         path = path + '.html'
+#     return flask.send_from_directory('../frontend/build', path)
 
 
-@app.get('/')
-def serve_base():
-    return flask.send_from_directory('../frontend/build', 'index.html')
+# @app.get('/')
+# def serve_base():
+#     return flask.send_from_directory('../frontend/build', 'index.html')
 
 
 @app.get('/api/submissions')

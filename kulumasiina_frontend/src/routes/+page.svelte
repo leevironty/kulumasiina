@@ -3,6 +3,11 @@
   import Header from './Header.svelte';
   import CostItem from './CostItem.svelte';
 
+  const formatEur = new Intl.NumberFormat('fi-FI', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format;
+
   interface costItem {
     kind: 'expense' | 'allowance',
     value: string
@@ -47,13 +52,8 @@
 </script>
 
 <Header/>
-<div class='row flex-row-reverse'>
-  <div class='summary col-4'>
-    <h2>Summary</h2>
-    <p>Total: {total}€</p>
-
-  </div>
-  <form id='form' class='col-8' on:submit|preventDefault={handleSubmit}>
+<div class='row'>
+  <form id='form' class='col-lg-8' on:submit|preventDefault={handleSubmit}>
     <Group key='fullName' label='Full name'/>
     <Group key='iban' label='IBAN' placeholder='FI 12 3456 7890 1234 56'/>
     {#if needSocialSecurity}
@@ -77,4 +77,8 @@
       </div>
     </div>
   </form>
+  <div class='summary col-lg-4 text-end text-lg-start'>
+    <h2>Summary</h2>
+    <p>Total: {formatEur(total)}</p>
+  </div>
 </div>
