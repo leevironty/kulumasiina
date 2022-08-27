@@ -1,0 +1,10 @@
+FROM python:3.10
+
+WORKDIR /opt/kulumasiina_backend
+COPY kulumasiina_backend/requirements.txt .
+RUN pip install -r requirements.txt
+COPY kulumasiina_backend/ .
+
+ENV PYTHONPATH "${PYTHONPATH}:/opt"
+
+CMD gunicorn server:app

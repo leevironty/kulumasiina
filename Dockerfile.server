@@ -1,0 +1,15 @@
+FROM node:16 as builder
+
+WORKDIR /opt/kulumasiina_frontend
+COPY kulumasiina_frontend/package.json .
+RUN npm install
+COPY kulumasiina_frontend/ .
+RUN npm run build
+
+FROM nginx:latest
+
+WORKDIR /opt/kulumasiina_backend
+
+COPY nginx.conf /etc/nginx/
+COPY --from=builder /opt/kulumasiina_frontend/build/ /usr/share/nginx/html
+

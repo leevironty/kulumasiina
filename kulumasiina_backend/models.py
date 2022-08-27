@@ -15,12 +15,14 @@ import datetime
 #     echo=True,
 #     future=True)
 
-engine = create_engine(
-    'postgresql://leevi@localhost:5432/kulut_test',
-    # connect_args={'check_same_thread':False},
-    # poolclass=StaticPool,
-    echo=True,
-    future=True)
+# engine = create_engine(
+#     'postgresql://leevi@localhost:5432/kulut_test',
+#     # connect_args={'check_same_thread':False},
+#     # poolclass=StaticPool,
+#     echo=True,
+#     future=True)
+
+engine = create_engine('sqlite:///demo.db', echo=True, future=True)
 
 Session = sessionmaker(bind=engine, future=True)
 
