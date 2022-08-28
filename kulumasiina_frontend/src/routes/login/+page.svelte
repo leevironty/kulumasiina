@@ -1,28 +1,32 @@
-<script type="ts">
-	import { redirect } from '@sveltejs/kit';
+<svelte:head>
+  {#if mounted}
+    <script src="https://accounts.google.com/gsi/client" async defer on:load={displaySignInButton}></script>
+  {/if}
+</svelte:head>
 
+<script type="ts">
+  let mounted = false;
 	const GOOGLE_CLIENT_ID =
 		'449017889620-74gdp1v6be7sj6rb0hfnf6r141p9hg25.apps.googleusercontent.com';
 	import { onMount } from 'svelte';
-	let googleReady = false;
-	let mounted = false;
+	// let googleReady = false;
+	// let mounted = false;
 	onMount(() => {
-		console.log('logging mounted');
-		mounted = true;
-		if (googleReady) {
-			displaySignInButton();
-		}
+		console.log('mounted');
+    mounted = true;
+    // displaySignInButton();
 	});
 
-	const googleLoaded = () => {
-		console.log('google loaded');
-		googleReady = true;
-		if (mounted) {
-			displaySignInButton();
-		}
-	};
+	// const googleLoaded = () => {
+	// 	console.log('google loaded');
+	// 	googleReady = true;
+	// 	if (mounted) {
+	// 		displaySignInButton();
+	// 	}
+	// };
 
 	const displaySignInButton = () => {
+    console.log('displaying login button');
 		google.accounts.id.initialize({
 			client_id: GOOGLE_CLIENT_ID,
 			callback: handleCredentialResponse
@@ -49,9 +53,6 @@
 	};
 </script>
 
-<svelte:head>
-	<script src="https://accounts.google.com/gsi/client" async defer on:load={googleLoaded}></script>
-</svelte:head>
 
 <h1 class="text-center">Reimbursements</h1>
 <h3 class="text-center">Guild of Physics</h3>
