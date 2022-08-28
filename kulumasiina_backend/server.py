@@ -1,32 +1,69 @@
 import flask
-# import psycopg
 from kulumasiina_backend.models import Session, Submission, Expense, Allowance
 from sqlalchemy import select, func, union
 from werkzeug.formparser import FileStorage
 import secrets
 import datetime
 import io
+from google.oauth2 import id_token
+from google.auth.transport import requests
+import jwt
+from functools import wraps
+import os
+from dotenv import load_dotenv
 
-# conn_str = 'postgresql://leevi@localhost:5432/kulut'
+# for easy local development
+# env is set by docker-compose in prod
+if 'JWT_SECRET' not in os.environ:
+    load_dotenv('../.env.api')
+
+SECRET = os.environ['JWT_SECRET']
+GOOGLE_CLIENT_ID = os.environ['GOOGLE_CLIENT_ID']
+EMAILS = os.environ['ADMIN_EMAILS'].replace(' ','').split(',')
+
+EXPENSE_PREFIX = 'expense-item-'
+ALLOWANCE_PREFIX = 'allowance-item-'
 
 app = flask.Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024**2
 app.config['JSON_AS_ASCII'] = False
 
 
-# @app.get('/<path:path>')
-# def serve_static(path):
-#     if '.' not in path:
-#         path = path + '.html'
-#     return flask.send_from_directory('../frontend/build', path)
+def admin_only(f):
+    """Decorator for checking issued JWT token validity."""
+    @wraps(f)
+    def decorator(*args, **kwargs):
+        token = flask.request.headers.get('Authorization', None)
+        if token is not None:
+            token = token.removeprefix('Bearer ')
+            decoded = jwt.decode(token, SECRET, algorithms='HS256')
+            user = decoded['user']
+            exp_time = datetime.datetime.fromtimestamp(decoded['exp'])
+            if user in EMAILS and exp_time > datetime.datetime.utcnow():
+                return f(*args, **kwargs)
+        return '', 403
+    return decorator
 
 
-# @app.get('/')
-# def serve_base():
-#     return flask.send_from_directory('../frontend/build', 'index.html')
+@app.post('/api/login')
+def check_login():
+    idinfo = id_token.verify_oauth2_token(
+        flask.request.data,
+        requests.Request(),
+        GOOGLE_CLIENT_ID)
+    if (email := idinfo['email']) in EMAILS:
+        exp_time = datetime.datetime.utcnow() + datetime.timedelta(hours=24)
+        return jwt.encode({'user': email, 'exp': exp_time}, SECRET)
+    return '', 403
+
+
+@app.get('/api/ping')
+def pong():
+    return '', 200
 
 
 @app.get('/api/submissions')
+@admin_only
 def get_submissions():
     expense_stmt = (
         select(
@@ -37,10 +74,11 @@ def get_submissions():
         .group_by(Submission)
         .subquery()
     )
+    allowance_value = Allowance.trip_length * Allowance.per_km
     allowance_stmt = (
         select(
             Submission.submission_id,
-            func.sum(Allowance.trip_length * Allowance.per_km).label('allowance_sum'),
+            func.sum(allowance_value).label('allowance_sum'),
             func.count().label('allowance_count')
         ).join(Allowance)
         .group_by(Submission)
@@ -57,10 +95,15 @@ def get_submissions():
             expense_stmt.c.expense_sum,
             expense_stmt.c.expense_count,
             allowance_stmt.c.allowance_sum,
-            allowance_stmt.c.allowance_count,
-        )
-        .join(expense_stmt, Submission.submission_id == expense_stmt.c.submission_id, isouter=True)
-        .join(allowance_stmt, Submission.submission_id == allowance_stmt.c.submission_id, isouter=True)
+            allowance_stmt.c.allowance_count)
+        .join(
+            expense_stmt,
+            Submission.submission_id == expense_stmt.c.submission_id,
+            isouter=True)
+        .join(
+            allowance_stmt,
+            Submission.submission_id == allowance_stmt.c.submission_id,
+            isouter=True)
         .order_by(
             Submission.paid_at,
             Submission.accepted_meeting,
@@ -72,15 +115,19 @@ def get_submissions():
     res = [dict(row) for row in rows]
     return res
 
+
 @app.get('/api/submissions/<int:id>')
-def get_one_submission(id: int):
+@admin_only
+def get_submission(id: int):
     stmt = select(Submission).where(Submission.submission_id == id)
     with Session() as session:
         submission: Submission = session.execute(stmt).scalar_one()
         out = submission.as_dict()
     return out
 
+
 @app.get('/api/file/<fname>')
+@admin_only
 def get_file(fname: str):
     stmt = (
         select(Expense.receipt_data)
@@ -95,18 +142,24 @@ def get_file(fname: str):
 @app.post('/api/submit')
 def handle_submit():
     save_submission(flask.request.form, flask.request.files)
-    return {'msg': 'ok'}
+    return '', 200
 
 
 def parse_keys(data: dict[str, str]) -> tuple[set[str], set[str]]:
-    expense_keys = [k for k in data.keys() if k.startswith('expense-item-')]
-    allowance_keys = [k for k in data.keys() if k.startswith('allowance-item-')]
-    expense_ids = set(key[13:].split('-')[0] for key in expense_keys)
-    allowance_ids = set(key[15:].split('-')[0] for key in allowance_keys)
+    """Parse item id sets for expenses and allowances from form data."""
+    expense_keys = [k for k in data.keys() if k.startswith(EXPENSE_PREFIX)]
+    allowance_keys = [k for k in data.keys() if k.startswith(ALLOWANCE_PREFIX)]
+    expense_ids = set(
+        key[len(EXPENSE_PREFIX):].split('-')[0] for key in expense_keys)
+    allowance_ids = set(
+        key[len(ALLOWANCE_PREFIX):].split('-')[0] for key in allowance_keys)
     return expense_ids, allowance_ids
 
 
-def generate_expenses(ids: set[str], data: dict[str, str], files: dict[str, FileStorage]) -> list[Expense]:
+def create_expenses(
+        ids: set[str], 
+        data: dict[str, str],
+        files: dict[str, FileStorage]) -> list[Expense]:
     out: list[Expense] = []
     allowed_extensions = ['pdf', 'jpg', 'jpeg', 'png']
     while ids:
@@ -128,29 +181,33 @@ def generate_expenses(ids: set[str], data: dict[str, str], files: dict[str, File
     return out
 
 
-def generate_allowances(ids: set[str], data: dict[str, str]) -> list[Allowance]:
+def create_allowances(ids: set[str], data: dict[str, str]) -> list[Allowance]:
     out: list[Allowance] = []
     while ids:
         i = ids.pop()
         description = data[f'allowance-item-{i}-desc']
+        # TODO: this is not used at all, remove from form
         value = data[f'allowance-item-{i}-value']
         kms = data[f'allowance-item-{i}-kms']
         out.append(Allowance(
             description=description,
+            # TODO: include these in form
             route='ROUTE PLACEHOLDER',
             plate_no='PLATE-NO PLACEHOLDER',
             trip_length=float(kms),
+            # TODO: per_km may change: fetch from some source based on date
             per_km=0.25
         ))
     return out
 
 
 def save_submission(data: dict[str, str], files: dict[str, FileStorage]):
+    """Cretate Submission, Expense, and Allowance entries from form data."""
     name = data['fullName']
     iban = data['iban']
     exp_ids, allow_ids = parse_keys(data)
-    expenses = generate_expenses(exp_ids, data, files)
-    allowances = generate_allowances(allow_ids, data)
+    expenses = create_expenses(exp_ids, data, files)
+    allowances = create_allowances(allow_ids, data)
     submission = Submission(
         name=name,
         iban=iban,

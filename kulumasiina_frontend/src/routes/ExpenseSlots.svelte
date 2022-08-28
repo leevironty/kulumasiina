@@ -1,3 +1,1 @@
-<svelte:fragment name='kind'>
-  Expense
-</svelte:fragment>
+<svelte:fragment name="kind">Expense</svelte:fragment>

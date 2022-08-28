@@ -3,18 +3,12 @@ import { sveltekit } from '@sveltejs/kit/vite';
 /** @type {import('vite').UserConfig} */
 const config = {
 	plugins: [sveltekit()],
-  server: {
-    proxy: {
-      '/api': 'http://localhost:5000',
-    },
-    cors: false,
-  }
+	server: {
+		proxy: {
+			'/api': 'http://localhost:5000'
+		},
+		cors: false
+	}
 };
 
 export default config;
-// export default defineConfig({
-//   plugins: [sveltekit()],
-//   proxy: {
-//     '/api': 'http://localhost:5000'
-//   },
-// });

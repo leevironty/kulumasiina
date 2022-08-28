@@ -9,10 +9,10 @@ const config = {
 
 	kit: {
 		adapter: adapter(),
-    prerender: {
-      default: true,
-    },
-    trailingSlash: 'always',
+		prerender: {
+			default: true
+		},
+		trailingSlash: 'always'
 	}
 };
 
