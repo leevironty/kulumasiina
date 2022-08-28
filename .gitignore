@@ -9,3 +9,4 @@ legacy-frontend
 *.ipynb
 .python-version
 *.db
+.env*
