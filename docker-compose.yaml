@@ -18,4 +18,4 @@ services:
     env_file:
       - .env.server
     ports:
-      - 8001:8000
+      - 8001:443
