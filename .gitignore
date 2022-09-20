@@ -11,3 +11,4 @@ legacy-frontend
 .nvmrc
 *.db
 .env*
+nogit*
