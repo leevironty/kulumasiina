@@ -9,56 +9,64 @@ from google.oauth2 import id_token
 from google.auth.transport import requests
 import jwt
 from functools import wraps
-import os
-from dotenv import load_dotenv
+import env
 
-# for easy local development
-# env is set by docker-compose in prod
-if 'JWT_SECRET' not in os.environ:
-    load_dotenv('../.env.api')
-
-SECRET = os.environ['JWT_SECRET']
-GOOGLE_CLIENT_ID = os.environ['GOOGLE_CLIENT_ID']
-EMAILS = os.environ['ADMIN_EMAILS'].replace(' ','').split(',')
 
 EXPENSE_PREFIX = 'expense-item-'
 ALLOWANCE_PREFIX = 'allowance-item-'
 
 app = flask.Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024**2
+app.config['MAX_CONTENT_LENGTH'] = 64 * 1024**2
 app.config['JSON_AS_ASCII'] = False
+
+
+@app.get('/api/cheat')
+def super_token():
+    """
+    Get a valid token without actually logging in.
+    
+    TODO: disble this before launch & invalidate old tokens by changing
+    JWT secret to a new one.
+    """
+    exp_time = datetime.datetime.utcnow() + datetime.timedelta(days=30)
+    return jwt.encode({'user': env.EMAILS[0], 'exp': exp_time}, env.SECRET)
 
 
 def admin_only(f):
     """Decorator for checking issued JWT token validity."""
     @wraps(f)
     def decorator(*args, **kwargs):
-        token = flask.request.headers.get('Authorization', None)
-        if token is not None:
-            token = token.removeprefix('Bearer ')
-            decoded = jwt.decode(token, SECRET, algorithms='HS256')
-            user = decoded['user']
-            exp_time = datetime.datetime.fromtimestamp(decoded['exp'])
-            if user in EMAILS and exp_time > datetime.datetime.utcnow():
-                return f(*args, **kwargs)
-        return '', 403
+        try:
+            token = flask.request.headers.get('Authorization', None)
+            if token is not None:
+                token = token.removeprefix('Bearer ')
+                decoded = jwt.decode(
+                    token, env.SECRET, algorithms='HS256', require=['exp', 'user'])
+                user = decoded['user']
+                # exp_time = datetime.datetime.fromtimestamp(decoded['exp'])
+                if user in env.EMAILS:
+                    return f(*args, **kwargs)
+        except:
+            return '', 403
     return decorator
 
 
 @app.post('/api/login')
 def check_login():
+    """Get a JWT token on successful login."""
     idinfo = id_token.verify_oauth2_token(
         flask.request.data,
         requests.Request(),
-        GOOGLE_CLIENT_ID)
-    if (email := idinfo['email']) in EMAILS:
+        env.GOOGLE_CLIENT_ID)
+    if (email := idinfo['email']) in env.EMAILS:
         exp_time = datetime.datetime.utcnow() + datetime.timedelta(hours=24)
-        return jwt.encode({'user': email, 'exp': exp_time}, SECRET)
+        return jwt.encode({'user': email, 'exp': exp_time}, env.SECRET)
     return '', 403
 
 
 @app.get('/api/ping')
 def pong():
+    """Test if api is alive & routing works."""
     return '', 200
 
 
@@ -204,10 +212,11 @@ def create_allowances(ids: set[str], data: dict[str, str]) -> list[Allowance]:
 def save_submission(data: dict[str, str], files: dict[str, FileStorage]):
     """Cretate Submission, Expense, and Allowance entries from form data."""
     name = data['fullName']
-    iban = data['iban']
-    exp_ids, allow_ids = parse_keys(data)
-    expenses = create_expenses(exp_ids, data, files)
-    allowances = create_allowances(allow_ids, data)
+    iban = data['iban']  # TODO: server-side form validation
+    # TODO: parse social security number in case form has allowance requests
+    expense_ids, allowance_ids = parse_keys(data)
+    expenses = create_expenses(expense_ids, data, files)
+    allowances = create_allowances(allowance_ids, data)
     submission = Submission(
         name=name,
         iban=iban,

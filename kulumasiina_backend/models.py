@@ -1,35 +1,27 @@
-from sqlalchemy import create_engine, Column, String, Integer, Float, Date, DateTime, LargeBinary, select, ForeignKey, inspect
+from sqlalchemy import (
+    create_engine,
+    Column,
+    String,
+    Integer,
+    Float,
+    DateTime,
+    LargeBinary,
+    ForeignKey
+)
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
-from sqlalchemy.pool import StaticPool
-import datetime
+import env
 
-# engine = create_engine('sqlite:///demo.db', echo=True, future=True)
-# engine = create_engine('sqlite:///test1.db?charset=utf8', echo=True, future=True, )
-# engine = create_engine('sqlite://', echo=True, future=True)
-# engine = create_engine('sqlite://', future=True)
-# engine = create_engine(
-#     'sqlite://',
-#     connect_args={'check_same_thread':False},
-#     poolclass=StaticPool,
-#     echo=True,
-#     future=True)
 
-# engine = create_engine(
-#     'postgresql://leevi@localhost:5432/kulut_test',
-#     # connect_args={'check_same_thread':False},
-#     # poolclass=StaticPool,
-#     echo=True,
-#     future=True)
-
-engine = create_engine('sqlite:///demo.db', echo=True, future=True)
-
-Session = sessionmaker(bind=engine, future=True)
+_engine = create_engine(env.CONN_STR, echo=True, future=True)
+# Use this for creating DB sessions
+Session = sessionmaker(bind=_engine, future=True)
 
 Base = declarative_base()
 
 
 class Submission(Base):
+    """Model keeping data from a single submission together."""
     __tablename__ = 'submissions'
     submission_id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False)
@@ -42,7 +34,10 @@ class Submission(Base):
     allowances = relationship('Allowance', back_populates='submission')
 
     def __repr__(self) -> str:
-        return f'Submission(submission_id={self.submission_id}, name={self.name}, iban={self.iban}, submitted_at={self.submitted_at})'
+        return (
+            f'Submission(submission_id={self.submission_id}, name={self.name}, '
+            f'iban={self.iban}, submitted_at={self.submitted_at})'
+        )
 
     def as_dict(self):
         out = {c.name: getattr(self, c.name) for c in self.__table__.columns}
@@ -50,11 +45,9 @@ class Submission(Base):
         out['allowances'] = [al.as_dict() for al in self.allowances]
         return out
 
-    # @property
-    # def allowance_value(self) -> float:
-    #     return sum(allwoance.value for allwoance in self.allowances)
 
 class Expense(Base):
+    """Model for an expense reimbursement."""
     __tablename__ = 'expenses'
     expense_id = Column(Integer, primary_key=True)
     submission_id = Column(Integer, ForeignKey('submissions.submission_id'))
@@ -65,13 +58,20 @@ class Expense(Base):
     value = Column(Float, nullable=False)
 
     def as_dict(self):
-        return {c.name: getattr(self, c.name) for c in self.__table__.columns if c.name != 'receipt_data'}
+        return {
+            c.name: getattr(self, c.name) for c in self.__table__.columns
+            if c.name != 'receipt_data'
+        }
 
     def __repr__(self) -> str:
-        return f'Expense(id={self.expense_id}, submission_id={self.submission_id}, filename={self.receipt_filename}, value={self.value})'
+        return (
+            f'Expense(id={self.expense_id}, submission_id={self.submission_id},'
+            f' filename={self.receipt_filename}, value={self.value})'
+        )
 
 
 class Allowance(Base):
+    """Model for mileage / KM allowance."""
     __tablename__ = 'allowances'
     allowance_id = Column(Integer, primary_key=True)
     submission_id = Column(Integer, ForeignKey('submissions.submission_id'))
@@ -85,11 +85,11 @@ class Allowance(Base):
     def as_dict(self):
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
-    # @property
-    # def value(self) -> float:
-    #     return self.trip_length * self.per_km
-
     def __repr__(self) -> str:
-        return f'Allowance(id={self.allowance_id}, submission_id={self.submission_id}, trip_length={self.trip_length})'
+        return (
+            f'Allowance(id={self.allowance_id}, submission_id='
+            f'{self.submission_id}, trip_length={self.trip_length})'
+        )
 
-Base.metadata.create_all(engine)
+# init DB schema if DB is empty (or models are missing)
+Base.metadata.create_all(_engine)
