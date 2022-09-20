@@ -1,14 +1,11 @@
 .DS_Store
 __pycache__
-moz-todo-svelte/
-bootstrap-5.0.2-examples
-bootstrap-5.0.2-examples.zip
 node_modules
-legacy-frontend
 .ipynb_checkpoints
 *.ipynb
 .python-version
 .nvmrc
 *.db
 .env*
+!.env*.example
 nogit*
