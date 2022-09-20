@@ -8,5 +8,6 @@ legacy-frontend
 .ipynb_checkpoints
 *.ipynb
 .python-version
+.nvmrc
 *.db
 .env*
