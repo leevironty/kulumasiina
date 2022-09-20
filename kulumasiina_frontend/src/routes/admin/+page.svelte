@@ -48,6 +48,10 @@
 		submissions = data;
 	};
 
+  const openSubmission = (id: number) => () => {
+    location.href = `/submission/?id=${id}`;
+  }
+
 	onMount(fetchSubmissions);
 </script>
 
@@ -68,7 +72,7 @@
 	</thead>
 	<tbody>
 		{#each submissions as submission}
-			<tr class="clickable">
+			<tr class="clickable" on:click={openSubmission(submission.submission_id)}>
 				<td><input type="checkbox" bind:checked={submission.is_selected} /></td>
 				<td>{submission.submission_id}</td>
 				<td>{submission.name}</td>

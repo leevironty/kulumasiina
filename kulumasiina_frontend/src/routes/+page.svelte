@@ -2,11 +2,9 @@
 	import Group from './TextInput.svelte';
 	import Header from './Header.svelte';
 	import CostItem from './CostItem.svelte';
-
-	const formatEur = new Intl.NumberFormat('fi-FI', {
-		style: 'currency',
-		currency: 'EUR'
-	}).format;
+  import MsgBox from '$lib/MsgBox.svelte';
+  import { formatEur } from '$lib/formatters';
+  import { postForm } from '$lib/api';
 
 	interface costItem {
 		kind: 'expense' | 'allowance';
@@ -14,8 +12,6 @@
 	}
 	let costItems: Array<costItem> = [];
 	let uploading = false;
-	let statusMsg = '';
-	let status: null | 'success' | 'danger' = null;
 
 	$: total = costItems.reduce((v, { value }) => v + Number(value), 0);
 	$: needSocialSecurity = costItems.some(({ kind }) => kind === 'allowance');
@@ -45,60 +41,16 @@
 		costItems = costItems;
 	};
 
-	const setMsgClearTimeout = (timeout: number = 5000) => {
-		setTimeout(() => {
-			status = null;
-			statusMsg = '';
-		}, timeout);
-	};
 
-	const handleSubmit = (event: SubmitEvent) => {
+	const handleSubmit = async (event: SubmitEvent) => {
 		uploading = true;
-		const { currentTarget } = event;
-		console.log(event);
-		console.log(currentTarget);
-		const data = new FormData(currentTarget);
-		console.log(data);
-		fetch('/api/submit', {
-			method: 'POST',
-			body: data
-		})
-			// .then(res => res.json())
-			// .then(data => console.log(data))
-			.then(async (response) => {
-				const isJson = response.headers.get('content-type')?.includes('application/json');
-				const data = isJson ? await response.json() : null;
-
-				// check for error response
-				if (!response.ok) {
-					// get error message from body or default to response status
-					const error = (data && data.message) || response.status;
-					return Promise.reject(error);
-				}
-			})
-			.then(() => {
-				status = 'success';
-				statusMsg = 'Upload succeeded';
-				setMsgClearTimeout();
-			})
-			.catch((err) => {
-				console.log({ err });
-				status = 'danger';
-				statusMsg = `Upload failed. Status ${err}`;
-				setMsgClearTimeout();
-			})
-			.finally(() => {
-				uploading = false;
-			});
+    await postForm(event);
+    uploading = false;
 	};
 </script>
 
 <Header />
-{#if status !== null}
-	<div class={`alert alert-${status}`} role="alert">
-		{statusMsg}
-	</div>
-{/if}
+<MsgBox/>
 
 <div class="row">
 	<form id="form" class="col-lg-8" on:submit|preventDefault={handleSubmit}>
@@ -113,17 +65,17 @@
 		{/each}
 		<div class="row flex-row-reverse">
 			<div class="col-9">
-				<div class="row m-0 g-0">
-					<div class="col-6">
+				<div class="row m-0 g-1">
+					<div class="col-6 ps-0">
 						<button
               type="button"
-              class="btn btn-primary form-control"
+              class="btn btn-primary form-control tall"
               on:click={newExpense}>add expense</button>
 					</div>
-					<div class="col-6">
+					<div class="col-6 pe-0">
 						<button
               type="button"
-              class="btn btn-primary form-control"
+              class="btn btn-primary form-control tall"
               on:click={newAllowance}>add mileage allowance</button>
 					</div>
 				</div>
@@ -142,3 +94,9 @@
 		<p>Total: {formatEur(total)}</p>
 	</div>
 </div>
+
+<style>
+  .tall {
+    height: 100%;
+  }
+</style>

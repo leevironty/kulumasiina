@@ -7,6 +7,6 @@
 <div class="form-group row mb-3">
 	<label class="col-form-label col-3" for={key}>{label}</label>
 	<div class="col-9">
-		<input class="form-control" type="text" id={key} name={key} {placeholder} />
+		<input required class="form-control" type="text" id={key} name={key} {placeholder} />
 	</div>
 </div>
